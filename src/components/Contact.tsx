@@ -65,16 +65,29 @@ export default function Contact() {
         }
       }
 
-      const submitResponse = await fetch("/__forms.html", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: encodedBody.toString(),
-      });
+      const submitTargets = ["/__forms.html", "/"];
+      let submitErrorDetails = "";
+      let wasSubmitted = false;
 
-      if (!submitResponse.ok) {
-        setSubmitError("Unable to submit your message right now.");
+      for (const target of submitTargets) {
+        const submitResponse = await fetch(target, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: encodedBody.toString(),
+        });
+
+        if (submitResponse.ok) {
+          wasSubmitted = true;
+          break;
+        }
+
+        submitErrorDetails = `${target} returned ${submitResponse.status}`;
+      }
+
+      if (!wasSubmitted) {
+        setSubmitError(`Unable to submit your message right now (${submitErrorDetails}).`);
         return;
       }
 
@@ -83,7 +96,7 @@ export default function Contact() {
       turnstileRef.current?.reset();
       setTurnstileToken(null);
     } catch {
-      setSubmitError("Unable to submit your message right now.");
+      setSubmitError("Unable to submit your message right now (network error).");
     } finally {
       setIsSubmitting(false);
     }
