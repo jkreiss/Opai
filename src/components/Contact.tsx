@@ -65,29 +65,16 @@ export default function Contact() {
         }
       }
 
-      const submitTargets = ["/__forms.html", "/"];
-      let submitErrorDetails = "";
-      let wasSubmitted = false;
+      const submitResponse = await fetch("/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: encodedBody.toString(),
+      });
 
-      for (const target of submitTargets) {
-        const submitResponse = await fetch(target, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: encodedBody.toString(),
-        });
-
-        if (submitResponse.ok) {
-          wasSubmitted = true;
-          break;
-        }
-
-        submitErrorDetails = `${target} returned ${submitResponse.status}`;
-      }
-
-      if (!wasSubmitted) {
-        setSubmitError(`Unable to submit your message right now (${submitErrorDetails}).`);
+      if (!submitResponse.ok) {
+        setSubmitError(`Unable to submit your message right now (/ returned ${submitResponse.status}).`);
         return;
       }
 
@@ -141,7 +128,15 @@ export default function Contact() {
 
           {/* Right Side: Form */}
           <div className="w-full md:w-3/5 p-10">
-            <form className="space-y-6" onSubmit={handleSubmit}>
+            <form
+              name="contact"
+              method="POST"
+              action="/"
+              data-netlify="true"
+              data-netlify-honeypot="bot-field"
+              className="space-y-6"
+              onSubmit={handleSubmit}
+            >
               <input type="hidden" name="form-name" value="contact" />
               <input type="hidden" name="bot-field" />
 
