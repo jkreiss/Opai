@@ -1,9 +1,94 @@
+"use client";
+
+import { FormEvent, useRef, useState } from "react";
+import { Turnstile, type TurnstileRef } from "nextjs-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Phone, Mail } from "lucide-react";
 
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
 export default function Contact() {
+  const turnstileRef = useRef<TurnstileRef>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
+  const [submitError, setSubmitError] = useState("");
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSubmitError("");
+    setSubmitMessage("");
+
+    const formElement = event.currentTarget;
+    const formData = new FormData(formElement);
+
+    if (!TURNSTILE_SITE_KEY) {
+      setSubmitError("Turnstile is not configured. Add NEXT_PUBLIC_TURNSTILE_SITE_KEY.");
+      return;
+    }
+
+    if (!turnstileToken) {
+      setSubmitError("Please complete the CAPTCHA.");
+      return;
+    }
+
+    const botFieldValue = String(formData.get("bot-field") ?? "").trim();
+    if (botFieldValue) {
+      setSubmitMessage("Thanks, your message has been submitted.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const verifyResponse = await fetch("/api/turnstile/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token: turnstileToken }),
+      });
+
+      if (!verifyResponse.ok) {
+        setSubmitError("Verification failed. Please try again.");
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
+        return;
+      }
+
+      const encodedBody = new URLSearchParams();
+      for (const [key, value] of formData.entries()) {
+        if (typeof value === "string") {
+          encodedBody.append(key, value);
+        }
+      }
+
+      const submitResponse = await fetch("/__forms.html", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: encodedBody.toString(),
+      });
+
+      if (!submitResponse.ok) {
+        setSubmitError("Unable to submit your message right now.");
+        return;
+      }
+
+      setSubmitMessage("Thanks, your message has been submitted.");
+      formElement.reset();
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
+    } catch {
+      setSubmitError("Unable to submit your message right now.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   return (
     <section id="contact" className="py-20 bg-secondary/40">
       <div className="container mx-auto px-4 md:px-6">
@@ -43,34 +128,64 @@ export default function Contact() {
 
           {/* Right Side: Form */}
           <div className="w-full md:w-3/5 p-10">
-            <form className="space-y-6">
+            <form className="space-y-6" onSubmit={handleSubmit}>
+              <input type="hidden" name="form-name" value="contact" />
+              <input type="hidden" name="bot-field" />
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label htmlFor="name" className="text-sm font-semibold text-foreground">Name</label>
-                  <Input id="name" placeholder="John Doe" className="bg-secondary/50 border-border" />
+                  <Input id="name" name="name" required placeholder="John Doe" className="bg-secondary/50 border-border" />
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="phone" className="text-sm font-semibold text-foreground">Phone Number</label>
-                  <Input id="phone" type="tel" placeholder="021 123 4567" className="bg-secondary/50 border-border" />
+                  <Input id="phone" name="phone" type="tel" required placeholder="021 123 4567" className="bg-secondary/50 border-border" />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-semibold text-foreground">Email</label>
-                <Input id="email" type="email" placeholder="john@example.com" className="bg-secondary/50 border-border" />
+                <Input id="email" name="email" type="email" required placeholder="john@example.com" className="bg-secondary/50 border-border" />
               </div>
 
               <div className="space-y-2">
                 <label htmlFor="message" className="text-sm font-semibold text-foreground">Message / Job Details</label>
                 <Textarea
                   id="message"
+                  name="message"
+                  required
                   placeholder={"Tell us about your job… \nIs it a new or existing floor? \nHas it been treated or polished before? \nIs there carpet that needs removing? \nApproximate area or size?"}
                   className="min-h-[150px] bg-secondary/50 border-border resize-none"
                 />
               </div>
 
-              <Button type="button" className="w-full py-6 text-lg font-semibold rounded-sm hover:brightness-110 hover:scale-101 transition-all cursor-pointer">
-                Send Message
+              {TURNSTILE_SITE_KEY ? (
+                <Turnstile
+                  ref={turnstileRef}
+                  siteKey={TURNSTILE_SITE_KEY}
+                  action="contact_form"
+                  onSuccess={(token) => {
+                    setTurnstileToken(token);
+                    setSubmitError("");
+                  }}
+                  onExpire={() => setTurnstileToken(null)}
+                  onError={() => setTurnstileToken(null)}
+                />
+              ) : (
+                <p className="text-sm font-medium text-destructive">
+                  Missing NEXT_PUBLIC_TURNSTILE_SITE_KEY.
+                </p>
+              )}
+
+              {submitError ? <p className="text-sm font-medium text-destructive">{submitError}</p> : null}
+              {submitMessage ? <p className="text-sm font-medium text-primary">{submitMessage}</p> : null}
+
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-6 text-lg font-semibold rounded-sm hover:brightness-110 hover:scale-101 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSubmitting ? "Sending..." : "Send Message"}
               </Button>
             </form>
           </div>
