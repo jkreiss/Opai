@@ -5,21 +5,21 @@ import { Turnstile, type TurnstileRef } from "nextjs-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Phone, Mail } from "lucide-react";
+import { CheckCircle2, Phone, Mail } from "lucide-react";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+const NETLIFY_FORM_ENDPOINT = "/__forms.html";
 
 export default function Contact() {
   const turnstileRef = useRef<TurnstileRef>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitMessage, setSubmitMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitError("");
-    setSubmitMessage("");
 
     const formElement = event.currentTarget;
     const formData = new FormData(formElement);
@@ -36,7 +36,7 @@ export default function Contact() {
 
     const botFieldValue = String(formData.get("bot-field") ?? "").trim();
     if (botFieldValue) {
-      setSubmitMessage("Thanks, your message has been submitted.");
+      setHasSubmitted(true);
       return;
     }
 
@@ -65,7 +65,7 @@ export default function Contact() {
         }
       }
 
-      const submitResponse = await fetch("/", {
+      const submitResponse = await fetch(NETLIFY_FORM_ENDPOINT, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
@@ -74,11 +74,13 @@ export default function Contact() {
       });
 
       if (!submitResponse.ok) {
-        setSubmitError(`Unable to submit your message right now (/ returned ${submitResponse.status}).`);
+        setSubmitError(
+          `Unable to submit your message right now (${NETLIFY_FORM_ENDPOINT} returned ${submitResponse.status}).`
+        );
         return;
       }
 
-      setSubmitMessage("Thanks, your message has been submitted.");
+      setHasSubmitted(true);
       formElement.reset();
       turnstileRef.current?.reset();
       setTurnstileToken(null);
@@ -127,18 +129,31 @@ export default function Contact() {
           </div>
 
           {/* Right Side: Form */}
-          <div className="w-full md:w-3/5 p-10">
+          <div className="w-full md:w-3/5 p-10 min-h-[520px]">
+            {hasSubmitted ? (
+              <div className="h-full flex flex-col items-center justify-center text-center px-6">
+                <CheckCircle2 className="w-16 h-16 text-primary mb-5" />
+                <p className="text-xl font-semibold text-foreground leading-relaxed max-w-lg">
+                  Thanks for your message, we will get back to you as soon as we can.
+                </p>
+              </div>
+            ) : (
             <form
               name="contact"
               method="POST"
-              action="/"
+              action={NETLIFY_FORM_ENDPOINT}
               data-netlify="true"
               data-netlify-honeypot="bot-field"
-              className="space-y-6"
+              className="space-y-6 h-full"
               onSubmit={handleSubmit}
             >
               <input type="hidden" name="form-name" value="contact" />
-              <input type="hidden" name="bot-field" />
+              <p className="absolute -left-[9999px] top-auto h-px w-px overflow-hidden">
+                <label htmlFor="bot-field">
+                  Don&apos;t fill this out if you&apos;re human:
+                  <input id="bot-field" name="bot-field" tabIndex={-1} autoComplete="off" />
+                </label>
+              </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -167,26 +182,28 @@ export default function Contact() {
                 />
               </div>
 
-              {TURNSTILE_SITE_KEY ? (
-                <Turnstile
-                  ref={turnstileRef}
-                  siteKey={TURNSTILE_SITE_KEY}
-                  action="contact_form"
-                  onSuccess={(token) => {
-                    setTurnstileToken(token);
-                    setSubmitError("");
-                  }}
-                  onExpire={() => setTurnstileToken(null)}
-                  onError={() => setTurnstileToken(null)}
-                />
-              ) : (
-                <p className="text-sm font-medium text-destructive">
-                  Missing NEXT_PUBLIC_TURNSTILE_SITE_KEY.
-                </p>
-              )}
+              <div className="min-h-[70px] flex items-center">
+                {TURNSTILE_SITE_KEY ? (
+                  <Turnstile
+                    ref={turnstileRef}
+                    siteKey={TURNSTILE_SITE_KEY}
+                    size="normal"
+                    action="contact_form"
+                    onSuccess={(token) => {
+                      setTurnstileToken(token);
+                      setSubmitError("");
+                    }}
+                    onExpire={() => setTurnstileToken(null)}
+                    onError={() => setTurnstileToken(null)}
+                  />
+                ) : (
+                  <p className="text-sm font-medium text-destructive">
+                    Missing NEXT_PUBLIC_TURNSTILE_SITE_KEY.
+                  </p>
+                )}
+              </div>
 
               {submitError ? <p className="text-sm font-medium text-destructive">{submitError}</p> : null}
-              {submitMessage ? <p className="text-sm font-medium text-primary">{submitMessage}</p> : null}
 
               <Button
                 type="submit"
@@ -196,6 +213,7 @@ export default function Contact() {
                 {isSubmitting ? "Sending..." : "Send Message"}
               </Button>
             </form>
+            )}
           </div>
 
         </div>

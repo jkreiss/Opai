@@ -25,14 +25,26 @@ const projects = [
   },
   {
     id: 4,
-    pre: "/images/gallery/timberkitchen_pre_restoration.jpg",
-    post: "/images/gallery/timberkitchen_post_restoration.jpg",
+    pre: "/images/gallery/warehousebefore.jpeg",
+    post: "/images/gallery/warehouseafter.jpeg",
     title: "Timber Kitchen",
   },
   {
     id: 5,
     pre: "/images/gallery/timberliving_pre.jpg",
     post: "/images/gallery/timberliving_post.jpg",
+    title: "Timber Living Room",
+  },
+    {
+    id: 6,
+    pre: "/images/gallery/closetbefore.jpg",
+    post: "/images/gallery/closetafter.jpg",
+    title: "Timber Living Room",
+  },
+    {
+    id: 7,
+    pre: "/images/gallery/stairsbefore.jpg",
+    post: "/images/gallery/stairsafter.jpg",
     title: "Timber Living Room",
   },
 ];
