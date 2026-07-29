@@ -1,9 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { getSiteUrl } from "@/lib/site-url";
 
-const metadataBase =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 const inter = Inter({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
@@ -11,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(metadataBase),
+  metadataBase: new URL(getSiteUrl()),
   title: "Opai Flooring",
   description:
     "Specialists in sanding, polishing and restoring timber floors and decks.",
